@@ -145,11 +145,15 @@ select { width: auto; font-family: var(--font-body); }
     </div>
   </div>
 
+  <pre id="errors" class="status" style="white-space:pre-wrap;color:var(--cut);margin:0" hidden></pre>
+
   <section class="grid" id="grid" aria-label="Stickers"></section>
+  <p class="hint">Version 9</p>
 </div>
 
 <script>
 (() => {
+  const VERSION = 'v9';
   const $ = id => document.getElementById(id);
   const state = { dir: 'in', items: [], examples: true };
   let dl = null;
@@ -338,7 +342,7 @@ select { width: auto; font-family: var(--font-body); }
     const ox = (s.sw - item.w * k) / 2, oy = (s.sh - item.h * k) / 2;
     const loops = item.loops.map(l => l.map(p => [p[0] * k + ox, p[1] * k + oy]));
     const art = s.art ? `\n  <image id="Artwork" x="${r2(ox)}" y="${r2(oy)}" width="${r2(item.w * k)}" height="${r2(item.h * k)}" href="${item.dataURL}"/>` : '';
-    return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${s.sw}" height="${s.sh}" viewBox="0 0 ${s.sw} ${s.sh}">${art}\n  <path id="CutContour" d="${pathData(loops)}" fill="none" stroke="#FF0000" stroke-width="${s.stroke}"stroke-linejoin="round" stroke-linecap="round"/>\n</svg>\n`;
+    return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${s.sw}" height="${s.sh}" viewBox="0 0 ${s.sw} ${s.sh}">${art}\n  <path id="CutContour" d="${pathData(loops)}" fill="none" stroke="#FF0000" stroke-width="${s.stroke}" stroke-linejoin="round" stroke-linecap="round"/>\n</svg>\n`;
   }
 
   // ---------- loading ----------
@@ -380,7 +384,8 @@ select { width: auto; font-family: var(--font-body); }
       }
       sizes.push(size);
     }
-    const big = Math.max(0, ...sizes.slice(1));
+    let big = 0;
+    for (let i = 1; i < sizes.length; i++) if (sizes[i] > big) big = sizes[i];
     const keep = sizes.map(v => v >= big * 0.2 && v > 0);
     const out = new Uint8Array(N);
     for (let i = 0; i < N; i++) if (label[i] && keep[label[i]]) out[i] = 255;
@@ -452,6 +457,15 @@ select { width: auto; font-family: var(--font-body); }
     else if (n === 0) { dims.innerHTML = ''; const w = document.createElement('span'); w.className = 'warn'; w.textContent = 'Offset too large for this shape'; dims.append(w); }
   }
 
+  const errors = [];
+  function showError(where, e) {
+    const msg = (where ? where + ': ' : '') + (e && e.message ? e.message : String(e));
+    errors.push(msg); console.error(where, e);
+    const box = $('errors'); box.hidden = false;
+    box.textContent = 'Something went wrong. Copy this and send it to whoever set up the tool:\n' + errors.slice(-5).join('\n') + '\n(' + VERSION + ', ' + navigator.userAgent + ')';
+  }
+  window.addEventListener('error', ev => showError('page', ev.error || ev.message));
+  window.addEventListener('unhandledrejection', ev => showError('page', ev.reason));
   let runId = 0;
   async function processAll() {
     const my = ++runId; const s = settings(); updateHint();
@@ -462,8 +476,8 @@ select { width: auto; font-family: var(--font-body); }
       $('status').textContent = `Tracing ${i + 1} of ${state.items.length}`;
       await new Promise(r => setTimeout(r, 0));
       if (my !== runId) return;
-      it.loops = trace(it, s);
-      renderCard(it, s);
+      try { it.loops = trace(it, s); renderCard(it, s); }
+      catch (e) { it.loops = []; showError(it.name, e); }
     }
     updateStatus();
   }
@@ -528,7 +542,8 @@ select { width: auto; font-family: var(--font-body); }
       const c = new DataView(new ArrayBuffer(46));
       c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x0800, true); c.setUint16(10, 0, true);
       c.setUint16(12, dosT, true); c.setUint16(14, dosD, true); c.setUint32(16, crc, true); c.setUint32(20, data.length, true); c.setUint32(24, data.length, true);
-      c.setUint16(28, nb.length, true); c.setUint32(42, off, true);
+      c.setUint16(28, nb.length, true); c.setUint32(38, (0o100644 << 16) >>> 0, true); c.setUint32(42, off, true);
+      c.setUint16(4, 0x0314, true);
       central.push(c, nb);
       off += 30 + nb.length + data.length;
     }
