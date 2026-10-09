@@ -110,8 +110,8 @@ select { width: auto; font-family: var(--font-body); }
         <input type="number" id="dpi" value="300" min="10" step="1">
       </div>
       <div class="field">
-        <label for="thresh">Edge opacity cutoff %</label>
-        <input type="number" id="thresh" value="50" min="1" max="99" step="1">
+        <label for="stroke">Stroke weight</label>
+        <input type="number" id="stroke" value="0.8" min="0.1" step="0.1">
       </div>
       <div class="field">
         <span class="lab">SVG canvas (w × h)</span>
@@ -163,7 +163,7 @@ select { width: auto; font-family: var(--font-body); }
     const px = unit === 'mm' ? amt / 25.4 * dpi : amt;
     const iso = state.dir === 'in' ? px : -px;
     const sw = Math.max(1, +$('svgw').value || 225), sh = Math.max(1, +$('svgh').value || 315);
-    return { unit, dpi, amt, px, iso, sw, sh, thr: Math.round(Math.min(99, Math.max(1, +$('thresh').value || 50)) * 2.55), art: $('art').checked };
+    return { unit, dpi, amt, px, iso, sw, sh, thr: 128, stroke: Math.max(0.1, +$('stroke').value || 0.8), art: $('art').checked };
   }
   function updateHint() {
     const s = settings();
@@ -336,7 +336,7 @@ select { width: auto; font-family: var(--font-body); }
     const ox = (s.sw - item.w * k) / 2, oy = (s.sh - item.h * k) / 2;
     const loops = item.loops.map(l => l.map(p => [p[0] * k + ox, p[1] * k + oy]));
     const art = s.art ? `\n  <image id="Artwork" x="${r2(ox)}" y="${r2(oy)}" width="${r2(item.w * k)}" height="${r2(item.h * k)}" href="${item.dataURL}"/>` : '';
-    return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${s.sw}" height="${s.sh}" viewBox="0 0 ${s.sw} ${s.sh}">${art}\n  <path id="CutContour" d="${pathData(loops)}" fill="none" stroke="#FF0000" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"/>\n</svg>\n`;
+    return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${s.sw}" height="${s.sh}" viewBox="0 0 ${s.sw} ${s.sh}">${art}\n  <path id="CutContour" d="${pathData(loops)}" fill="none" stroke="#FF0000" stroke-width="${s.stroke}"stroke-linejoin="round" stroke-linecap="round"/>\n</svg>\n`;
   }
 
   // ---------- loading ----------
@@ -535,7 +535,7 @@ select { width: auto; font-family: var(--font-body); }
   $('dir-out').addEventListener('click', () => setDir('out'));
   let t; const later = () => { updateHint(); clearTimeout(t); t = setTimeout(processAll, 250); };
   ['svgw', 'svgh'].forEach(id => $(id).addEventListener('input', updateHint));
-  ['offset', 'dpi', 'thresh'].forEach(id => $(id).addEventListener('input', later));
+  ['offset', 'dpi'].forEach(id => $(id).addEventListener('input', later));
   $('unit').addEventListener('change', () => {
     const s = settings(), v = +$('offset').value || 0;
     $('offset').value = s.unit === 'px' ? r2(v / 25.4 * s.dpi) : r2(v * 25.4 / s.dpi);
