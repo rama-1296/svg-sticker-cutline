@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0">
+<title>Sticker Cut Lines</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+/* Layout: settings bar on top, sticker cards on a cutting-mat grid below */
+:root {
+  --bg: #f3f5f2;
+  --surface: #ffffff;
+  --ink: #1d2420;
+  --muted: #5d6a63;
+  --line: #d6ddd8;
+  --mat: #2f5d4e;
+  --mat-grid: rgba(255,255,255,0.13);
+  --mat-grid-strong: rgba(255,255,255,0.26);
+  --cut: #e6007e;
+  --cut-soft: #fde3f1;
+  --focus: #e6007e;
+  --font-display: "Bricolage Grotesque", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141a17; --surface: #1c2420; --ink: #e7ece9; --muted: #9aa9a1; --line: #2e3a34;
+    --mat: #1f4438; --mat-grid: rgba(255,255,255,0.08); --mat-grid-strong: rgba(255,255,255,0.18);
+    --cut: #ff4fae; --cut-soft: #3a1a2c; --focus: #ff4fae; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141a17; --surface: #1c2420; --ink: #e7ece9; --muted: #9aa9a1; --line: #2e3a34;
+  --mat: #1f4438; --mat-grid: rgba(255,255,255,0.08); --mat-grid-strong: rgba(255,255,255,0.18);
+  --cut: #ff4fae; --cut-soft: #3a1a2c; --focus: #ff4fae; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 48px; display: grid; gap: 22px; }
+header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px 24px; }
+h1 { font-family: var(--font-display); font-weight: 800; font-size: clamp(30px, 5vw, 44px); line-height: 1; margin: 0; letter-spacing: -0.02em; text-wrap: balance; }
+h1 .dash { color: var(--cut); }
+.lede { margin: 8px 0 0; color: var(--muted); max-width: 60ch; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 14px; }
+.settings { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: end; }
+.field { display: grid; gap: 5px; min-width: 0; }
+.field label, .field .lab { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+input[type=number], select { font: 500 15px var(--font-mono); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px; width: 7.5em; }
+select { width: auto; font-family: var(--font-body); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { font: 500 14px var(--font-body); padding: 7px 12px; border: 0; background: var(--bg); color: var(--muted); cursor: pointer; }
+.seg button[aria-pressed=true] { background: var(--ink); color: var(--bg); }
+.check { display: flex; align-items: center; gap: 8px; font-size: 14px; padding-block: 7px; }
+.check input { accent-color: var(--cut); width: 16px; height: 16px; }
+.hint { font: 12px var(--font-mono); color: var(--muted); }
+.drop { border: 2px dashed var(--line); border-radius: 10px; padding: 22px 16px; text-align: center; cursor: pointer; display: grid; gap: 4px; justify-items: center; transition: border-color .15s, background .15s; }
+.drop:hover, .drop.over { border-color: var(--cut); background: var(--cut-soft); }
+.drop strong { font-family: var(--font-display); font-weight: 600; font-size: 19px; }
+.drop span { color: var(--muted); font-size: 14px; }
+.bar { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; }
+.status { font: 13px var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.btn { font: 600 15px var(--font-body); border-radius: 8px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+.btn.primary { background: var(--cut); border-color: var(--cut); color: #fff; }
+.btn:disabled { opacity: .5; cursor: default; }
+.btn:focus-visible, .seg button:focus-visible, input:focus-visible, select:focus-visible, .drop:focus-visible, .mini:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.btns { display: flex; gap: 10px; flex-wrap: wrap; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; display: grid; grid-template-rows: auto 1fr; min-width: 0; }
+.mat { position: relative; aspect-ratio: 5 / 7; max-width: 100%; background-color: var(--mat);
+  background-image: linear-gradient(var(--mat-grid-strong) 1px, transparent 1px), linear-gradient(90deg, var(--mat-grid-strong) 1px, transparent 1px),
+    linear-gradient(var(--mat-grid) 1px, transparent 1px), linear-gradient(90deg, var(--mat-grid) 1px, transparent 1px);
+  background-size: 50px 50px, 50px 50px, 10px 10px, 10px 10px; display: grid; place-items: center; padding: 14px; }
+.mat svg { width: 100%; height: 100%; overflow: visible; }
+.meta { padding: 10px 12px; display: grid; gap: 2px; min-width: 0; }
+.meta .name { font-weight: 600; font-size: 14px; overflow-wrap: anywhere; display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+.meta .dims { font: 12px var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.tag { font: 600 10px var(--font-body); text-transform: uppercase; letter-spacing: .08em; padding: 2px 6px; border-radius: 4px; background: var(--cut-soft); color: var(--cut); flex: none; }
+.mini { font: 500 12px var(--font-body); border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 5px; padding: 3px 8px; cursor: pointer; flex: none; }
+.warn { color: var(--cut); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Sticker Cut Lines<span class="dash">.</span></h1>
+      <p class="lede">Drop in PNGs with transparent backgrounds. Each one gets an SVG cut path traced from its edge and offset by the amount you set. Download them all as a zip.</p>
+    </div>
+  </header>
+
+  <section class="panel" aria-label="Settings">
+    <div class="settings">
+      <div class="field">
+        <span class="lab">Direction</span>
+        <div class="seg" role="group" aria-label="Offset direction">
+          <button type="button" id="dir-in" aria-pressed="true">Inside edge</button>
+          <button type="button" id="dir-out" aria-pressed="false">Outside edge</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="offset">Offset</label>
+        <input type="number" id="offset" value="9" min="0" step="0.5">
+      </div>
+      <div class="field">
+        <label for="unit">Unit</label>
+        <select id="unit"><option value="px" selected>px</option><option value="mm">mm</option></select>
+      </div>
+      <div class="field" id="dpi-field">
+        <label for="dpi">PNG resolution (DPI)</label>
+        <input type="number" id="dpi" value="300" min="10" step="1">
+      </div>
+      <div class="field">
+        <label for="thresh">Edge opacity cutoff %</label>
+        <input type="number" id="thresh" value="50" min="1" max="99" step="1">
+      </div>
+      <div class="field">
+        <span class="lab">SVG canvas (w × h)</span>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="number" id="svgw" value="225" min="1" step="1" aria-label="SVG width" style="width:5.5em">
+          <span class="hint">×</span>
+          <input type="number" id="svgh" value="315" min="1" step="1" aria-label="SVG height" style="width:5.5em">
+        </div>
+      </div>
+      <div class="field">
+        <span class="lab">SVG contents</span>
+        <label class="check"><input type="checkbox" id="art"> Include the artwork</label>
+      </div>
+    </div>
+    <p class="hint" id="hint"></p>
+  </section>
+
+  <label class="drop" id="drop" tabindex="0">
+    <strong>Add PNGs</strong>
+    <span>Transparent PNGs, or full cards with a white sticker shape on a coloured background. Drag files here or click to choose.</span>
+    <input type="file" id="file" accept="image/png,image/jpeg" multiple hidden>
+  </label>
+
+  <div class="bar">
+    <span class="status" id="status">Loading examples</span>
+    <div class="btns">
+      <button type="button" class="btn" id="clear">Clear all</button>
+      <button type="button" class="btn primary" id="zip" disabled>Download all as zip</button>
+    </div>
+  </div>
+
+  <section class="grid" id="grid" aria-label="Stickers"></section>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const state = { dir: 'in', items: [], examples: true };
+  let dl = null;
+  try {
+    if (window.claude && window.claude.use) window.claude.use('downloads').then(x => { dl = x; }).catch(() => {});
+  } catch (e) {}
+
+  // ---------- settings ----------
+  function settings() {
+    const unit = $('unit').value;
+    const dpi = Math.max(10, +$('dpi').value || 300);
+    const amt = Math.max(0, +$('offset').value || 0);
+    const px = unit === 'mm' ? amt / 25.4 * dpi : amt;
+    const iso = state.dir === 'in' ? px : -px;
+    const sw = Math.max(1, +$('svgw').value || 225), sh = Math.max(1, +$('svgh').value || 315);
+    return { unit, dpi, amt, px, iso, sw, sh, thr: Math.round(Math.min(99, Math.max(1, +$('thresh').value || 50)) * 2.55), art: $('art').checked };
+  }
+  function updateHint() {
+    const s = settings();
+    $('dpi-field').hidden = s.unit !== 'mm';
+    const where = state.dir === 'in' ? 'inside' : 'outside';
+    $('hint').textContent = s.unit === 'mm'
+      ? `${s.amt} mm ${where} the edge = ${s.px.toFixed(1)} PNG px at ${s.dpi} DPI.`
+      : `${s.amt} PNG px ${where} the edge.`;
+    $('hint').textContent += ` Each PNG is scaled to fit a ${s.sw} × ${s.sh} SVG canvas.`;
+  }
+
+  // ---------- geometry ----------
+  const INF = 1e20;
+  function edt1d(f, n, d, v, z) {
+    let k = 0; v[0] = 0; z[0] = -Infinity; z[1] = Infinity;
+    for (let q = 1; q < n; q++) {
+      let s = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]);
+      while (s <= z[k]) { k--; s = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]); }
+      k++; v[k] = q; z[k] = s; z[k + 1] = Infinity;
+    }
+    k = 0;
+    for (let q = 0; q < n; q++) { while (z[k + 1] < q) k++; const r = q - v[k]; d[q] = r * r + f[v[k]]; }
+  }
+  function edt(grid, W, H) {
+    const n = Math.max(W, H);
+    const f = new Float64Array(n), d = new Float64Array(n), z = new Float64Array(n + 1), v = new Int32Array(n);
+    for (let x = 0; x < W; x++) {
+      for (let y = 0; y < H; y++) f[y] = grid[y * W + x];
+      edt1d(f, H, d, v, z);
+      for (let y = 0; y < H; y++) grid[y * W + x] = d[y];
+    }
+    for (let y = 0; y < H; y++) {
+      const o = y * W;
+      for (let x = 0; x < W; x++) f[x] = grid[o + x];
+      edt1d(f, W, d, v, z);
+      for (let x = 0; x < W; x++) grid[o + x] = d[x];
+    }
+    return grid;
+  }
+
+  function trace(item, s) {
+    const { w, h, alpha } = item;
+    const P = Math.ceil(Math.max(0, -s.iso)) + 3;
+    const W = w + 2 * P, H = h + 2 * P, N = W * H;
+    const mask = new Uint8Array(N);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (alpha[y * w + x] >= s.thr) mask[(y + P) * W + x + P] = 1;
+    // fill holes: anything not reachable from the border becomes solid
+    const seen = new Uint8Array(N), stack = new Int32Array(N); let sp = 0;
+    stack[sp++] = 0; seen[0] = 1;
+    while (sp) {
+      const i = stack[--sp], x = i % W, y = (i / W) | 0;
+      if (x > 0 && !seen[i - 1] && !mask[i - 1]) { seen[i - 1] = 1; stack[sp++] = i - 1; }
+      if (x < W - 1 && !seen[i + 1] && !mask[i + 1]) { seen[i + 1] = 1; stack[sp++] = i + 1; }
+      if (y > 0 && !seen[i - W] && !mask[i - W]) { seen[i - W] = 1; stack[sp++] = i - W; }
+      if (y < H - 1 && !seen[i + W] && !mask[i + W]) { seen[i + W] = 1; stack[sp++] = i + W; }
+    }
+    let any = false;
+    for (let i = 0; i < N; i++) { if (!seen[i]) { mask[i] = 1; any = true; } }
+    if (!any) return [];
+    // signed distance field, positive inside
+    const F = new Float32Array(N);
+    const din = new Float64Array(N);
+    for (let i = 0; i < N; i++) din[i] = mask[i] ? INF : 0;
+    edt(din, W, H);
+    let dout = null;
+    if (s.iso < 0) {
+      dout = new Float64Array(N);
+      for (let i = 0; i < N; i++) dout[i] = mask[i] ? 0 : INF;
+      edt(dout, W, H);
+    }
+    for (let i = 0; i < N; i++) F[i] = mask[i] ? Math.sqrt(din[i]) - 0.5 : (dout ? -(Math.sqrt(dout[i]) - 0.5) : -0.5);
+    const iso = s.iso === 0 ? 0 : s.iso;
+    return marching(F, W, H, iso, P);
+  }
+
+  function marching(F, W, H, iso, P) {
+    const pts = new Map();
+    const links = new Map();
+    const hid = (x, y) => 2 * (y * W + x), vid = (x, y) => 2 * (y * W + x) + 1;
+    function pt(id) {
+      if (pts.has(id)) return;
+      const c = id >> 1, x = c % W, y = (c / W) | 0;
+      if (id & 1) { const a = F[c], b = F[c + W], t = (iso - a) / (b - a); pts.set(id, [x + 0.5 - P, y + t + 0.5 - P]); }
+      else { const a = F[c], b = F[c + 1], t = (iso - a) / (b - a); pts.set(id, [x + t + 0.5 - P, y + 0.5 - P]); }
+    }
+    function seg(a, b) {
+      pt(a); pt(b);
+      let la = links.get(a); if (!la) links.set(a, la = []); la.push(b);
+      let lb = links.get(b); if (!lb) links.set(b, lb = []); lb.push(a);
+    }
+    for (let y = 0; y < H - 1; y++) {
+      for (let x = 0; x < W - 1; x++) {
+        const i = y * W + x;
+        const tl = F[i] > iso, tr = F[i + 1] > iso, br = F[i + W + 1] > iso, bl = F[i + W] > iso;
+        const c = (tl << 3) | (tr << 2) | (br << 1) | bl;
+        if (c === 0 || c === 15) continue;
+        const T = hid(x, y), R = vid(x + 1, y), B = hid(x, y + 1), L = vid(x, y);
+        switch (c) {
+          case 1: case 14: seg(L, B); break;
+          case 2: case 13: seg(B, R); break;
+          case 3: case 12: seg(L, R); break;
+          case 4: case 11: seg(T, R); break;
+          case 6: case 9: seg(T, B); break;
+          case 7: case 8: seg(L, T); break;
+          case 5: case 10: {
+            const mid = (F[i] + F[i + 1] + F[i + W] + F[i + W + 1]) / 4 > iso;
+            if ((c === 5) === mid) { seg(L, T); seg(B, R); } else { seg(T, R); seg(L, B); }
+            break;
+          }
+        }
+      }
+    }
+    const used = new Set(), loops = [];
+    for (const start of links.keys()) {
+      if (used.has(start)) continue;
+      const loop = []; let prev = -1, cur = start;
+      while (cur !== undefined && !used.has(cur)) {
+        used.add(cur); loop.push(pts.get(cur));
+        const nb = links.get(cur);
+        const nxt = nb[0] !== prev ? nb[0] : nb[1];
+        prev = cur; cur = nxt;
+      }
+      if (loop.length >= 3) {
+        let a = 0;
+        for (let k = 0; k < loop.length; k++) { const p = loop[k], q = loop[(k + 1) % loop.length]; a += p[0] * q[1] - q[0] * p[1]; }
+        if (Math.abs(a / 2) >= 16) loops.push(simplify(loop, 0.35));
+      }
+    }
+    return loops;
+  }
+
+  function simplify(loop, tol) {
+    if (loop.length < 8) return loop;
+    // split the closed loop at its two farthest-apart points, then RDP each half
+    let far = 0, fd = -1; const p0 = loop[0];
+    for (let i = 1; i < loop.length; i++) { const d = (loop[i][0] - p0[0]) ** 2 + (loop[i][1] - p0[1]) ** 2; if (d > fd) { fd = d; far = i; } }
+    const a = rdp(loop.slice(0, far + 1), tol), b = rdp(loop.slice(far).concat([loop[0]]), tol);
+    return a.slice(0, -1).concat(b.slice(0, -1));
+  }
+  function rdp(pts, tol) {
+    const keep = new Uint8Array(pts.length); keep[0] = keep[pts.length - 1] = 1;
+    const st = [[0, pts.length - 1]], t2 = tol * tol;
+    while (st.length) {
+      const [s, e] = st.pop(); const A = pts[s], B = pts[e];
+      const dx = B[0] - A[0], dy = B[1] - A[1], L = dx * dx + dy * dy;
+      let mi = -1, md = t2;
+      for (let i = s + 1; i < e; i++) {
+        const p = pts[i]; let d;
+        if (L === 0) d = (p[0] - A[0]) ** 2 + (p[1] - A[1]) ** 2;
+        else { const c = dx * (p[1] - A[1]) - dy * (p[0] - A[0]); d = c * c / L; }
+        if (d > md) { md = d; mi = i; }
+      }
+      if (mi > 0) { keep[mi] = 1; st.push([s, mi], [mi, e]); }
+    }
+    return pts.filter((_, i) => keep[i]);
+  }
+
+  const r2 = n => Math.round(n * 100) / 100;
+  function pathData(loops) {
+    return loops.map(l => 'M' + l.map(p => r2(p[0]) + ' ' + r2(p[1])).join('L') + 'Z').join('');
+  }
+  function bounds(item, loops) {
+    let x0 = 0, y0 = 0, x1 = item.w, y1 = item.h;
+    for (const l of loops) for (const p of l) { if (p[0] < x0) x0 = p[0]; if (p[1] < y0) y0 = p[1]; if (p[0] > x1) x1 = p[0]; if (p[1] > y1) y1 = p[1]; }
+    x0 = Math.floor(x0) - 1; y0 = Math.floor(y0) - 1; x1 = Math.ceil(x1) + 1; y1 = Math.ceil(y1) + 1;
+    return [x0, y0, x1 - x0, y1 - y0];
+  }
+  function svgFor(item, s) {
+    const k = Math.min(s.sw / item.w, s.sh / item.h);
+    const ox = (s.sw - item.w * k) / 2, oy = (s.sh - item.h * k) / 2;
+    const loops = item.loops.map(l => l.map(p => [p[0] * k + ox, p[1] * k + oy]));
+    const art = s.art ? `\n  <image id="Artwork" x="${r2(ox)}" y="${r2(oy)}" width="${r2(item.w * k)}" height="${r2(item.h * k)}" href="${item.dataURL}"/>` : '';
+    return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${s.sw}" height="${s.sh}" viewBox="0 0 ${s.sw} ${s.sh}">${art}\n  <path id="CutContour" d="${pathData(loops)}" fill="none" stroke="#FF0000" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"/>\n</svg>\n`;
+  }
+
+  // ---------- loading ----------
+  function loadImage(src) {
+    return new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => rej(new Error('Could not read image')); im.src = src; });
+  }
+  function readDataURL(file) {
+    return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(file); });
+  }
+  async function makeItem(name, dataURL, example) {
+    const im = await loadImage(dataURL);
+    const w = im.naturalWidth, h = im.naturalHeight;
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(im, 0, 0);
+    const data = ctx.getImageData(0, 0, w, h).data;
+    let alpha = new Uint8Array(w * h);
+    let opaqueAll = true;
+    for (let i = 0; i < w * h; i++) { alpha[i] = data[i * 4 + 3]; if (alpha[i] < 250) opaqueAll = false; }
+    if (opaqueAll) alpha = whiteShape(data, w, h);
+    return { id: Math.random().toString(36).slice(2), name: name.replace(/\.(png|jpe?g)$/i, ''), dataURL, w, h, alpha, example, fromWhite: opaqueAll, loops: [] };
+  }
+
+  // For images with no transparency: find the big white sticker shape sitting on a coloured background.
+  // Keeps the largest white region (and any of similar size), drops small white bits like header text.
+  function whiteShape(data, w, h) {
+    const N = w * h, white = new Uint8Array(N), label = new Int32Array(N), stack = new Int32Array(N);
+    for (let i = 0; i < N; i++) { const r = data[i * 4], g = data[i * 4 + 1], b = data[i * 4 + 2]; if (r >= 232 && g >= 232 && b >= 232) white[i] = 1; }
+    const sizes = [0];
+    for (let s = 0; s < N; s++) {
+      if (!white[s] || label[s]) continue;
+      const id = sizes.length; let size = 0, sp = 0; stack[sp++] = s; label[s] = id;
+      while (sp) {
+        const i = stack[--sp], x = i % w; size++;
+        if (x > 0 && white[i - 1] && !label[i - 1]) { label[i - 1] = id; stack[sp++] = i - 1; }
+        if (x < w - 1 && white[i + 1] && !label[i + 1]) { label[i + 1] = id; stack[sp++] = i + 1; }
+        if (i >= w && white[i - w] && !label[i - w]) { label[i - w] = id; stack[sp++] = i - w; }
+        if (i < N - w && white[i + w] && !label[i + w]) { label[i + w] = id; stack[sp++] = i + w; }
+      }
+      sizes.push(size);
+    }
+    const big = Math.max(0, ...sizes.slice(1));
+    const keep = sizes.map(v => v >= big * 0.2 && v > 0);
+    const out = new Uint8Array(N);
+    for (let i = 0; i < N; i++) if (label[i] && keep[label[i]]) out[i] = 255;
+    return out;
+  }
+
+  function exampleArt() {
+    const out = [];
+    // a rounded star
+    let c = document.createElement('canvas'); c.width = 750; c.height = 1050; let g = c.getContext('2d');
+    g.translate(75, 225);
+    g.beginPath();
+    for (let i = 0; i < 10; i++) { const r = i % 2 ? 120 : 250, a = -Math.PI / 2 + i * Math.PI / 5; g.lineTo(300 + r * Math.cos(a), 300 + r * Math.sin(a)); }
+    g.closePath(); g.lineJoin = 'round'; g.lineWidth = 40; g.strokeStyle = '#ffd23f'; g.fillStyle = '#ffd23f'; g.fill(); g.stroke();
+    g.fillStyle = '#3b2a00'; g.beginPath(); g.arc(255, 290, 16, 0, 7); g.arc(345, 290, 16, 0, 7); g.fill();
+    g.lineWidth = 10; g.strokeStyle = '#3b2a00'; g.beginPath(); g.arc(300, 320, 40, 0.2, Math.PI - 0.2); g.stroke();
+    out.push(['example-star.png', c.toDataURL('image/png')]);
+    // a cloud with a speech bubble tail and a hole
+    c = document.createElement('canvas'); c.width = 750; c.height = 1050; g = c.getContext('2d');
+    g.translate(25, 280);
+    g.fillStyle = '#7cc6fe';
+    [[220, 260, 140], [380, 200, 160], [520, 280, 120], [330, 320, 130]].forEach(([x, y, r]) => { g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); });
+    g.beginPath(); g.moveTo(180, 360); g.lineTo(110, 470); g.lineTo(280, 390); g.fill();
+    g.globalCompositeOperation = 'destination-out'; g.beginPath(); g.arc(400, 230, 40, 0, 7); g.fill();
+    g.globalCompositeOperation = 'source-over';
+    g.fillStyle = '#0b3954'; g.font = '800 92px system-ui, sans-serif'; g.textAlign = 'center'; g.fillText('hi!', 300, 320);
+    out.push(['example-cloud.png', c.toDataURL('image/png')]);
+    return out;
+  }
+
+  // ---------- render ----------
+  function cardHTML(item) {
+    return `<article class="card" id="c-${item.id}">
+      <div class="mat"><svg aria-hidden="true"></svg></div>
+      <div class="meta">
+        <div class="name"><span></span><span class="right"></span></div>
+        <div class="dims"></div>
+      </div></article>`;
+  }
+  function renderCard(item, s) {
+    let el = document.getElementById('c-' + item.id);
+    if (!el) {
+      $('grid').insertAdjacentHTML('beforeend', cardHTML(item));
+      el = document.getElementById('c-' + item.id);
+      el.querySelector('.name span').textContent = item.name + '.png';
+      const right = el.querySelector('.right');
+      if (item.example) right.innerHTML = '<span class="tag">Example</span>';
+      else {
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'mini'; b.textContent = 'SVG';
+        b.setAttribute('aria-label', 'Download SVG for ' + item.name);
+        b.addEventListener('click', () => saveOne(item));
+        right.appendChild(b);
+      }
+    }
+    const [x, y, W, H] = bounds(item, item.loops);
+    const svg = el.querySelector('svg');
+    svg.setAttribute('viewBox', `${x} ${y} ${W} ${H}`);
+    const sw = Math.max(W, H) / 200;
+    svg.innerHTML = `<image x="0" y="0" width="${item.w}" height="${item.h}" href="${item.dataURL}"/>` +
+      `<path d="${pathData(item.loops)}" fill="none" stroke="#ff0000" stroke-width="${sw}" stroke-linejoin="round" stroke-linecap="round"/>`;
+    const dims = el.querySelector('.dims');
+    const mm = n => (n / s.dpi * 25.4).toFixed(1);
+    let txt = `${item.w} × ${item.h} px` + (s.unit === 'mm' ? ` · ${mm(item.w)} × ${mm(item.h)} mm` : '');
+    const n = item.loops.length;
+    txt += ` · ${n} cut${n === 1 ? '' : 's'}`;
+    dims.textContent = txt;
+    if (item.fromWhite && n > 0) dims.textContent = txt + ' · traced from white area';
+    if (n === 0 && item.fromWhite) { dims.innerHTML = ''; const w = document.createElement('span'); w.className = 'warn'; w.textContent = 'No transparency or white shape found'; dims.append(w); }
+    else if (n === 0) { dims.innerHTML = ''; const w = document.createElement('span'); w.className = 'warn'; w.textContent = 'Offset too large for this shape'; dims.append(w); }
+  }
+
+  let runId = 0;
+  async function processAll() {
+    const my = ++runId; const s = settings(); updateHint();
+    $('zip').disabled = true;
+    for (let i = 0; i < state.items.length; i++) {
+      if (my !== runId) return;
+      const it = state.items[i];
+      $('status').textContent = `Tracing ${i + 1} of ${state.items.length}`;
+      await new Promise(r => setTimeout(r, 0));
+      if (my !== runId) return;
+      it.loops = trace(it, s);
+      renderCard(it, s);
+    }
+    updateStatus();
+  }
+  function updateStatus() {
+    const real = state.items.filter(i => !i.example).length;
+    $('status').textContent = state.examples
+      ? 'Showing 2 examples. Add your PNGs to replace them.'
+      : `${real} sticker${real === 1 ? '' : 's'} ready`;
+    $('zip').disabled = real === 0;
+    $('clear').disabled = state.items.length === 0 || state.examples;
+  }
+
+  async function addFiles(files) {
+    const pngs = [...files].filter(f => /^image\/(png|jpeg)$/.test(f.type) || /\.(png|jpe?g)$/i.test(f.name));
+    if (!pngs.length) { $('status').textContent = 'Those files are not images. Add PNG or JPG files.'; return; }
+    if (state.examples) { state.items = []; $('grid').innerHTML = ''; state.examples = false; }
+    let n = 0;
+    for (const f of pngs) {
+      $('status').textContent = `Reading ${++n} of ${pngs.length}`;
+      try { state.items.push(await makeItem(f.name, await readDataURL(f), false)); }
+      catch (e) { console.warn(f.name, e); }
+    }
+    processAll();
+  }
+
+  // ---------- saving ----------
+  async function saveFile(filename, data) {
+    if (dl) {
+      try { await dl.save({ filename, data }); return true; }
+      catch (e) {
+        if (e && e.code === 'declined') return false;
+        if (e && e.code === 'rate_limited') { $('status').textContent = 'A save prompt is already open.'; return false; }
+      }
+    }
+    const blob = data instanceof Blob ? data : new Blob([data], { type: 'image/svg+xml' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    return true;
+  }
+  function uniqueNames(items) {
+    const used = {}; return items.map(it => { let n = it.name + '-cut'; if (used[n]) n += '-' + (++used[n]); else used[n] = 1; return n + '.svg'; });
+  }
+  async function saveOne(item) { await saveFile(item.name + '-cut.svg', svgFor(item, settings())); }
+  $('zip').addEventListener('click', async () => {
+    const s = settings(), items = state.items.filter(i => !i.example && i.loops.length);
+    if (!items.length) return;
+    if (!window.JSZip) { $('status').textContent = 'The zip tool did not load. Use the SVG button on each card instead.'; return; }
+    $('zip').disabled = true; $('status').textContent = 'Building zip';
+    const zip = new JSZip(); const names = uniqueNames(items);
+    items.forEach((it, i) => zip.file(names[i], svgFor(it, s)));
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const ok = await saveFile('sticker-cut-lines.zip', blob);
+    updateStatus();
+    if (ok) $('status').textContent = `Saved ${items.length} SVG${items.length === 1 ? '' : 's'}`;
+  });
+  $('clear').addEventListener('click', () => { state.items = []; $('grid').innerHTML = ''; updateStatus(); $('status').textContent = 'Cleared. Add PNGs to start again.'; });
+
+  // ---------- inputs ----------
+  const drop = $('drop'), file = $('file');
+  file.addEventListener('change', () => { addFiles(file.files); file.value = ''; });
+  drop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); file.click(); } });
+  ['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', e => addFiles(e.dataTransfer.files));
+  document.addEventListener('dragover', e => e.preventDefault());
+  document.addEventListener('drop', e => { e.preventDefault(); if (e.target !== drop && !drop.contains(e.target)) addFiles(e.dataTransfer.files); });
+
+  function setDir(d) { state.dir = d; $('dir-in').setAttribute('aria-pressed', d === 'in'); $('dir-out').setAttribute('aria-pressed', d === 'out'); processAll(); }
+  $('dir-in').addEventListener('click', () => setDir('in'));
+  $('dir-out').addEventListener('click', () => setDir('out'));
+  let t; const later = () => { updateHint(); clearTimeout(t); t = setTimeout(processAll, 250); };
+  ['svgw', 'svgh'].forEach(id => $(id).addEventListener('input', updateHint));
+  ['offset', 'dpi', 'thresh'].forEach(id => $(id).addEventListener('input', later));
+  $('unit').addEventListener('change', () => {
+    const s = settings(), v = +$('offset').value || 0;
+    $('offset').value = s.unit === 'px' ? r2(v / 25.4 * s.dpi) : r2(v * 25.4 / s.dpi);
+    later();
+  });
+  $('art').addEventListener('change', () => {});
+
+  // ---------- start ----------
+  updateHint();
+  (async () => {
+    for (const [n, d] of exampleArt()) state.items.push(await makeItem(n, d, true));
+    processAll();
+  })();
+})();
+</script>
+
+</body></html>
